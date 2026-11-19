@@ -8,6 +8,7 @@ import { DEFAULT_MEALS, FOOD_CATEGORIES } from '@/data/foods';
 import { currentMeal, fmtHM, MEAL_INFO, MEAL_SHARE, mealsFor } from '@/lib/meals';
 import { useNow } from '@/lib/useNow';
 import { dailyTargets, kcalFromMacros, totals } from '@/lib/nutrition';
+import { ripStatus } from '@/lib/ripped';
 import { todayISO } from '@/lib/units';
 import { AnimatedBar, FadeIn, Pop } from '@/components/anim';
 import {
@@ -40,7 +41,8 @@ export default function FoodScreen() {
   const meal = picked ?? currentMeal(new Date(now), settings.mealTimes);
 
   const weight = [...bodyLogs].reverse().find((b) => b.weightKg != null)?.weightKg;
-  const targets = dailyTargets(settings, weight);
+  const rip = ripStatus(bodyLogs, settings.heightCm);
+  const targets = dailyTargets(settings, weight, rip.latest);
   const t = totals(logs);
   const grouped = useMemo(() => FOOD_CATEGORIES
     .filter((c) => !filter || c.id === filter)
@@ -89,7 +91,13 @@ export default function FoodScreen() {
                 <MacroBox label="Fat" value={`${Math.round(t.fat)} g`} />
                 <MacroBox label="Left" value={targets.kcal != null ? `${Math.max(0, Math.round(targets.kcal - t.kcal))}` : '—'} unit="kcal" />
               </Row>
-              {targets.estimated && <T small muted>Calories estimated from {weight} kg. You can set your own in Settings.</T>}
+              {targets.estimated && (
+                <T small muted>
+                  {rip.latest != null
+                    ? `${rip.phase.name}: maintenance minus ${rip.phase.deficit} kcal, from ${weight} kg at ~${rip.latest.toFixed(1)}% body fat.`
+                    : `Calories estimated from ${weight} kg.`} You can set your own in Settings.
+                </T>
+              )}
             </>
           )}
         </Card>

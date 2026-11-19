@@ -1,4 +1,5 @@
 import type { FoodLog, Settings } from '../types';
+import { phaseFor } from './ripped';
 
 /** Calories from macros: 4 kcal/g protein & carbs, 9 kcal/g fat. */
 export const kcalFromMacros = (protein: number, carbs: number, fat: number) => Math.round(protein * 4 + carbs * 4 + fat * 9);
@@ -14,15 +15,17 @@ export interface Targets {
 /**
  * Daily targets for a recomp:
  * - protein = bodyweight × settings.proteinPerKg (1.6–2.2 g/kg)
- * - calories = manual target if set, else maintenance − 400. Maintenance is a rough
+ * - calories = manual target if set, else maintenance − the phase's deficit (400 without a body-fat estimate). Maintenance is a rough
  *   estimate (bodyweight × 31 kcal for someone training ~4×/week). Adjust it with
  *   the waist trend: if the waist isn't dropping after 3–4 weeks, eat ~150 kcal less.
  */
-export function dailyTargets(settings: Settings, bodyweightKg?: number): Targets {
+export function dailyTargets(settings: Settings, bodyweightKg?: number, bodyFat?: number | null): Targets {
   const maintenance = bodyweightKg ? Math.round((bodyweightKg * 31) / 10) * 10 : null;
+  // With a body-fat estimate, the deficit follows the phase (lean out 500, get ripped 400, stay ripped 0).
+  const deficit = bodyFat != null ? phaseFor(bodyFat).deficit : 400;
   return {
     proteinG: bodyweightKg ? Math.round(bodyweightKg * settings.proteinPerKg) : null,
-    kcal: settings.kcalTarget ?? (maintenance ? maintenance - 400 : null),
+    kcal: settings.kcalTarget ?? (maintenance ? maintenance - deficit : null),
     maintenance,
     estimated: settings.kcalTarget == null,
   };

@@ -104,6 +104,8 @@ export interface BodyLog {
   waistCm?: number;
   /** Shoulder circumference, for the shoulder-to-waist (V-taper) ratio. */
   shouldersCm?: number;
+  /** Neck circumference, for the US Navy body-fat estimate (with waist and height). */
+  neckCm?: number;
   notes?: string;
 }
 

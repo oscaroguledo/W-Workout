@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { EXERCISES } from '../data/exercises';
 import { DEFAULT_PROGRAM, type Program } from '../data/programs';
@@ -12,7 +13,18 @@ import { DEFAULT_SETTINGS } from '../types';
 // renders): on web the SQLite engine boots in a worker and isn't ready synchronously.
 let sqlite: SQLite.SQLiteDatabase;
 
-const DB_VERSION = 3;
+/**
+ * Run writes atomically. On the phone this uses an exclusive transaction on its own
+ * connection, so queries from screens refreshing at the same moment can't get mixed
+ * into it (with the shared transaction a concurrent read could leave it stuck and the
+ * write would silently never finish). Web doesn't support exclusive transactions.
+ */
+async function tx(task: (db: SQLite.SQLiteDatabase) => Promise<void>) {
+  if (Platform.OS === 'web') await sqlite.withTransactionAsync(() => task(sqlite));
+  else await sqlite.withExclusiveTransactionAsync((txn) => task(txn));
+}
+
+const DB_VERSION = 4;
 
 export async function migrate() {
   sqlite ??= await SQLite.openDatabaseAsync('recomp.db');
@@ -62,6 +74,10 @@ export async function migrate() {
     `);
     await seedFoods();
   }
+  if (current < 4) {
+    // v4: neck measurement for the body-fat estimate.
+    await sqlite.execAsync('ALTER TABLE body_logs ADD COLUMN neck_cm REAL;');
+  }
   await sqlite.execAsync(`PRAGMA user_version = ${DB_VERSION}`);
 }
 
@@ -77,10 +93,10 @@ function settingsForProgram(s: Settings, p: Program): Settings {
 
 /** Replace all routines with a program's routines and adopt its weekly targets. */
 export async function applyProgram(p: Program) {
-  await sqlite.withTransactionAsync(async () => {
-    await sqlite.runAsync('DELETE FROM routines');
+  await tx(async (db) => {
+    await db.runAsync('DELETE FROM routines');
     for (const r of p.routines) {
-      await sqlite.runAsync('INSERT INTO routines (id, ord, data) VALUES (?, ?, ?)', r.id, r.order, JSON.stringify(r));
+      await db.runAsync('INSERT INTO routines (id, ord, data) VALUES (?, ?, ?)', r.id, r.order, JSON.stringify(r));
     }
   });
   await saveSettings(settingsForProgram(await getSettings(), p));
@@ -200,9 +216,9 @@ export async function updateSession(id: string, patch: Partial<Pick<Session, 'pl
   notify();
 }
 export async function deleteSession(id: string) {
-  await sqlite.withTransactionAsync(async () => {
-    await sqlite.runAsync('DELETE FROM sets WHERE session_id = ?', id);
-    await sqlite.runAsync('DELETE FROM sessions WHERE id = ?', id);
+  await tx(async (db) => {
+    await db.runAsync('DELETE FROM sets WHERE session_id = ?', id);
+    await db.runAsync('DELETE FROM sessions WHERE id = ?', id);
   });
   notify();
 }
@@ -252,25 +268,27 @@ export async function deleteSet(id: string) {
 }
 /** Remove a slot from an in-progress session and shift later sets down. */
 export async function removeSlot(sessionId: string, slot: number, plan: PlanItem[]) {
-  await sqlite.withTransactionAsync(async () => {
-    await sqlite.runAsync('UPDATE sets SET slot = slot - 1 WHERE session_id = ? AND slot > ?', sessionId, slot);
-    await sqlite.runAsync('UPDATE sessions SET plan = ? WHERE id = ?', JSON.stringify(plan.filter((_, i) => i !== slot)), sessionId);
+  await tx(async (db) => {
+    await db.runAsync('UPDATE sets SET slot = slot - 1 WHERE session_id = ? AND slot > ?', sessionId, slot);
+    await db.runAsync('UPDATE sessions SET plan = ? WHERE id = ?', JSON.stringify(plan.filter((_, i) => i !== slot)), sessionId);
   });
   notify();
 }
 
 // ---------------------------------------------------------------- body logs
-type BodyRow = { id: string; date: string; weight_kg: number | null; waist_cm: number | null; shoulders_cm: number | null; notes: string | null };
+type BodyRow = {
+  id: string; date: string; weight_kg: number | null; waist_cm: number | null; shoulders_cm: number | null; neck_cm: number | null; notes: string | null;
+};
 const toBody = (r: BodyRow): BodyLog => ({
   id: r.id, date: r.date, weightKg: r.weight_kg ?? undefined, waistCm: r.waist_cm ?? undefined,
-  shouldersCm: r.shoulders_cm ?? undefined, notes: r.notes ?? undefined,
+  shouldersCm: r.shoulders_cm ?? undefined, neckCm: r.neck_cm ?? undefined, notes: r.notes ?? undefined,
 });
 export async function getBodyLogs() {
   return (await sqlite.getAllAsync<BodyRow>('SELECT * FROM body_logs ORDER BY date, rowid')).map(toBody);
 }
 export async function addBodyLog(b: BodyLog) {
-  await sqlite.runAsync('INSERT INTO body_logs (id, date, weight_kg, waist_cm, shoulders_cm, notes) VALUES (?, ?, ?, ?, ?, ?)',
-    b.id, b.date, b.weightKg ?? null, b.waistCm ?? null, b.shouldersCm ?? null, b.notes ?? null);
+  await sqlite.runAsync('INSERT INTO body_logs (id, date, weight_kg, waist_cm, shoulders_cm, neck_cm, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    b.id, b.date, b.weightKg ?? null, b.waistCm ?? null, b.shouldersCm ?? null, b.neckCm ?? null, b.notes ?? null);
   notify();
 }
 export async function deleteBodyLog(id: string) {
@@ -335,28 +353,28 @@ export type Backup = Awaited<ReturnType<typeof exportAll>>;
 
 export async function importAll(data: Backup) {
   if (data?.app !== 'recomp') throw new Error('Not a Recomp backup');
-  await sqlite.withTransactionAsync(async () => {
-    await sqlite.execAsync('DELETE FROM custom_exercises; DELETE FROM routines; DELETE FROM sessions; DELETE FROM sets; DELETE FROM body_logs; DELETE FROM food_logs;');
+  await tx(async (db) => {
+    await db.execAsync('DELETE FROM custom_exercises; DELETE FROM routines; DELETE FROM sessions; DELETE FROM sets; DELETE FROM body_logs; DELETE FROM food_logs;');
     if (data.foods?.length) {
-      await sqlite.execAsync('DELETE FROM foods;');
-      for (const f of data.foods) await sqlite.runAsync('INSERT INTO foods (id, data) VALUES (?, ?)', f.id, JSON.stringify(f));
+      await db.execAsync('DELETE FROM foods;');
+      for (const f of data.foods) await db.runAsync('INSERT INTO foods (id, data) VALUES (?, ?)', f.id, JSON.stringify(f));
     }
-    for (const l of data.foodLogs ?? []) await sqlite.runAsync('INSERT INTO food_logs (id, date, data) VALUES (?, ?, ?)', l.id, l.date, JSON.stringify(l));
-    for (const e of data.exercises ?? []) await sqlite.runAsync('INSERT INTO custom_exercises (id, data) VALUES (?, ?)', e.id, JSON.stringify(e));
-    for (const r of data.routines ?? []) await sqlite.runAsync('INSERT INTO routines (id, ord, data) VALUES (?, ?, ?)', r.id, r.order, JSON.stringify(r));
+    for (const l of data.foodLogs ?? []) await db.runAsync('INSERT INTO food_logs (id, date, data) VALUES (?, ?, ?)', l.id, l.date, JSON.stringify(l));
+    for (const e of data.exercises ?? []) await db.runAsync('INSERT INTO custom_exercises (id, data) VALUES (?, ?)', e.id, JSON.stringify(e));
+    for (const r of data.routines ?? []) await db.runAsync('INSERT INTO routines (id, ord, data) VALUES (?, ?, ?)', r.id, r.order, JSON.stringify(r));
     for (const s of data.sessions ?? []) {
-      await sqlite.runAsync('INSERT INTO sessions (id, routine_id, name, started_at, ended_at, plan, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      await db.runAsync('INSERT INTO sessions (id, routine_id, name, started_at, ended_at, plan, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
         s.id, s.routineId ?? null, s.name, s.startedAt, s.endedAt ?? null, JSON.stringify(s.plan), s.notes ?? null);
     }
     for (const s of data.sets ?? []) {
-      await sqlite.runAsync(`INSERT INTO sets (id, session_id, exercise_id, slot, set_index, weight_kg, reps, seconds, distance_m, completed_at)
+      await db.runAsync(`INSERT INTO sets (id, session_id, exercise_id, slot, set_index, weight_kg, reps, seconds, distance_m, completed_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, s.id, s.sessionId, s.exerciseId, s.slot, s.setIndex, s.weightKg, s.reps, s.seconds, s.distanceM ?? 0, s.completedAt);
     }
     for (const b of data.bodyLogs ?? []) {
-      await sqlite.runAsync('INSERT INTO body_logs (id, date, weight_kg, waist_cm, shoulders_cm, notes) VALUES (?, ?, ?, ?, ?, ?)',
-        b.id, b.date, b.weightKg ?? null, b.waistCm ?? null, b.shouldersCm ?? null, b.notes ?? null);
+      await db.runAsync('INSERT INTO body_logs (id, date, weight_kg, waist_cm, shoulders_cm, neck_cm, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        b.id, b.date, b.weightKg ?? null, b.waistCm ?? null, b.shouldersCm ?? null, b.neckCm ?? null, b.notes ?? null);
     }
-    await sqlite.runAsync('INSERT OR REPLACE INTO settings (id, data) VALUES (?, ?)', 'settings', JSON.stringify({ ...DEFAULT_SETTINGS, ...data.settings }));
+    await db.runAsync('INSERT OR REPLACE INTO settings (id, data) VALUES (?, ?)', 'settings', JSON.stringify({ ...DEFAULT_SETTINGS, ...data.settings }));
   });
   notify();
 }

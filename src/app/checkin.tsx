@@ -14,6 +14,7 @@ export default function CheckIn() {
   const [weight, setWeight] = useState('');
   const [waist, setWaist] = useState('');
   const [shoulders, setShoulders] = useState('');
+  const [neck, setNeck] = useState('');
   const [notes, setNotes] = useState('');
   const [err, setErr] = useState('');
 
@@ -21,13 +22,15 @@ export default function CheckIn() {
     const w = parseFloat(weight.replace(',', '.'));
     const wa = parseFloat(waist.replace(',', '.'));
     const sh = parseFloat(shoulders.replace(',', '.'));
+    const nk = parseFloat(neck.replace(',', '.'));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { setErr('Date must look like 2026-11-18.'); return; }
-    if (isNaN(w) && isNaN(wa) && isNaN(sh) && !notes.trim()) { setErr('Enter at least one measurement or a note.'); return; }
+    if (isNaN(w) && isNaN(wa) && isNaN(sh) && isNaN(nk) && !notes.trim()) { setErr('Enter at least one measurement or a note.'); return; }
     await addBodyLog({
       id: uid(), date,
       weightKg: isNaN(w) ? undefined : unitToKg(w, settings.weightUnit),
       waistCm: isNaN(wa) ? undefined : unitToCm(wa, settings.lengthUnit),
       shouldersCm: isNaN(sh) ? undefined : unitToCm(sh, settings.lengthUnit),
+      neckCm: isNaN(nk) ? undefined : unitToCm(nk, settings.lengthUnit),
       notes: notes.trim() || undefined,
     });
     close();
@@ -50,6 +53,8 @@ export default function CheckIn() {
         </Row>
         <Field label={`Shoulders (${settings.lengthUnit}) · optional`} keyboardType="decimal-pad" value={shoulders} onChangeText={setShoulders}
           placeholder="0.0" hint="Tape around the widest point, arms relaxed. Tracks your V-taper." />
+        <Field label={`Neck (${settings.lengthUnit}) · optional`} keyboardType="decimal-pad" value={neck} onChangeText={setNeck}
+          placeholder="0.0" hint="Just below the Adam’s apple, tape level. With waist and height it estimates your body fat (once a month is enough)." />
       </Section>
       <Section title="Notes">
         <Field label="How was the week?" value={notes} onChangeText={setNotes} placeholder="Sleep, diet, energy, how clothes fit…" multiline

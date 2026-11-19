@@ -20,9 +20,9 @@ export interface Program {
 const AESTHETIC: Program = {
   id: 'aesthetic-vtaper',
   name: 'Aesthetic V-Taper',
-  summary: '4-day rotation · shoulders, back, upper chest, arms & abs first · 2–3 runs a week',
+  summary: '4-day rotation for a ripped V-taper · shoulders, back, upper chest, arms & abs first · 2–3 runs a week',
   details: [
-    'Builds the "fitness model" look: broad shoulders and back that make the waist look smaller.',
+    'Built to get you ripped: lean (~10% body fat, visible abs) with broad shoulders and back that make the waist look smaller.',
     'Extra sets for side/rear delts, lats and upper chest (they shape the V-taper).',
     'Arms trained directly twice per rotation; abs three times; neck + traps for a stronger jaw/neck line.',
     'Legs trained hard once per rotation plus kettlebell work, for an athletic not bulky lower body.',

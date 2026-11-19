@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { deleteBodyLog, getBodyLogs, getFinishedSets, getSetsSince, useExerciseMap, useQuery, useSettings } from '@/db';
 import { bestsFor, cardioMinutes, e1rm, muscleSets, vTaperRatio, weekStart } from '@/lib/stats';
+import { RIPPED_BF, ripStatus } from '@/lib/ripped';
 import { cmToUnit, distUnit, fmtDist, fmtLength, fmtWeight, kgToUnit, mToDist, parseISODate } from '@/lib/units';
 import {
   Btn, Card, H4, Icon, IconBtn, IconTile, LineChart, ListBtn, Pill, Row, Screen, Section, Sheet, Stat, T, Track, confirm,
@@ -42,6 +43,7 @@ export default function Progress() {
     return w ? { x: parseISODate(b.date), y: b.shouldersCm! / w.waistCm! } : null;
   }).filter((p): p is { x: number; y: number } => !!p);
   const sign = (n: number) => (n > 0 ? '+' : '');
+  const rip = ripStatus(bodyLogs, settings.heightCm);
 
   // ----- weekly volume -----
   const vol = muscleSets(weekSets, exMap);
@@ -83,8 +85,9 @@ export default function Progress() {
         </Row>
         <Row>
           <Stat label="V-taper" value={ratio ? ratio.toFixed(2) : '—'} sub={ratio ? `${Math.min(100, Math.round((ratio / 1.6) * 100))}% of 1.6` : 'shoulders ÷ waist'} />
-          <Stat label="Waist ÷ height" value={whtr ? whtr.toFixed(2) : '—'} sub={whtr ? (whtr < 0.5 ? 'healthy range' : 'target < 0.50') : 'needs height'}
-            subColor={whtr ? (whtr < 0.5 ? C.accent : C.warn) : undefined} />
+          <Stat label="Body fat" value={rip.latest != null ? `${rip.latest.toFixed(1)}%` : '—'}
+            sub={rip.latest != null ? (rip.latest <= RIPPED_BF + 1.5 ? 'ripped range' : `target ${RIPPED_BF}%`) : 'add neck + height'}
+            subColor={rip.latest != null ? (rip.latest <= RIPPED_BF + 1.5 ? C.accent : C.warn) : undefined} />
         </Row>
         {ratio != null && (
           <View style={{ gap: 6 }}>
@@ -99,7 +102,8 @@ export default function Progress() {
           {ratio
             ? 'Shoulders ÷ waist, with ~1.6 as the classic aesthetic target. It rises from both ends: shoulders and back growing, waist shrinking.'
             : 'Add your shoulder measurement at check-in to track your V-taper (shoulders ÷ waist, target ~1.6).'}
-          {whtr && whtr >= 0.5 && settings.heightCm ? ` For waist ÷ height under 0.5 you need a waist under ${fmtLength(settings.heightCm * 0.5, settings.lengthUnit)}.` : ''}
+          {whtr ? ` Waist ÷ height is ${whtr.toFixed(2)}${whtr >= 0.5 && settings.heightCm ? `; under 0.50 means a waist under ${fmtLength(settings.heightCm * 0.5, settings.lengthUnit)}` : ' (healthy range)'}.` : ''}
+          {rip.latest != null ? ' Body fat is a US Navy tape estimate (waist, neck, height): trust the trend more than the exact number.' : ''}
           {!settings.heightCm ? ' Add your height in Settings to see waist ÷ height.' : ''}
         </T>
       </Section>
@@ -111,6 +115,12 @@ export default function Progress() {
           <>
             <H4>V-taper ratio</H4>
             <LineChart points={ratioPoints} format={(y) => y.toFixed(2)} color={C.warn} />
+          </>
+        )}
+        {rip.series.length > 0 && (
+          <>
+            <H4>Body fat (%) · target {RIPPED_BF}%</H4>
+            <LineChart points={rip.series.map((x) => ({ x: parseISODate(x.date), y: x.bf }))} format={(y) => y.toFixed(1)} color={C.warn} />
           </>
         )}
         <H4>Weight ({settings.weightUnit})</H4>
@@ -128,7 +138,7 @@ export default function Progress() {
               <T small bold>{new Date(parseISODate(b.date)).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</T>
               <T small muted>
                 {[b.weightKg != null && fmtWeight(b.weightKg, settings.weightUnit), b.waistCm != null && `waist ${fmtLength(b.waistCm, settings.lengthUnit)}`,
-                  b.shouldersCm != null && `shoulders ${fmtLength(b.shouldersCm, settings.lengthUnit)}`, b.notes].filter(Boolean).join(' · ')}
+                  b.shouldersCm != null && `shoulders ${fmtLength(b.shouldersCm, settings.lengthUnit)}`, b.neckCm != null && `neck ${fmtLength(b.neckCm, settings.lengthUnit)}`, b.notes].filter(Boolean).join(' · ')}
               </T>
             </View>
             <IconBtn label="Delete check-in" icon="trash-outline" plain color={C.muted} onPress={async () => {

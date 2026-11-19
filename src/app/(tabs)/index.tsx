@@ -10,13 +10,14 @@ import { estimateMinutes, expressPlan, nextRoutine, startSession } from '@/lib/s
 import { cardioMinutes, muscleSets, weekStart } from '@/lib/stats';
 import { programById } from '@/data/programs';
 import { targetFor, type Muscle, type Routine } from '@/types';
-import { fmtDuration, parseISODate, todayISO } from '@/lib/units';
+import { fmtDuration, fmtWeight, parseISODate, todayISO } from '@/lib/units';
+import { RIPPED_BF, ripStatus, roadToRipped } from '@/lib/ripped';
 import { useNow } from '@/lib/useNow';
 import { fmtHM, MEAL_INFO, todaySchedule } from '@/lib/meals';
 import {
-  Btn, Card, H2, Icon, IconBtn, IconTile, ListBtn, Pill, Row, Screen, Section, Stat, T, Tag, s as ui, type IconName,
+  Btn, Card, H2, Icon, IconBtn, IconTile, ListBtn, Pill, Row, Screen, Section, Stat, T, Tag, Track, s as ui, type IconName,
 } from '@/components/ui';
-import { FadeIn } from '@/components/anim';
+import { AnimatedBar, FadeIn } from '@/components/anim';
 import { C } from '@/theme';
 
 let resumedOnLaunch = false;
@@ -57,7 +58,12 @@ export default function Today() {
   const program = programById(settings.programId);
   const cardio = Math.round(cardioMinutes(weekSets, exMap));
   const eaten = totals(foodToday);
-  const targets = dailyTargets(settings, [...bodyLogs].reverse().find((b) => b.weightKg != null)?.weightKg);
+  const latestWeight = [...bodyLogs].reverse().find((b) => b.weightKg != null)?.weightKg;
+  const rip = ripStatus(bodyLogs, settings.heightCm);
+  const targets = dailyTargets(settings, latestWeight, rip.latest);
+  const road = rip.latest != null && latestWeight ? roadToRipped(latestWeight, rip.latest) : null;
+  const ripPct = rip.latest != null && rip.first != null && rip.first > RIPPED_BF
+    ? Math.max(0, Math.min(100, ((rip.first - rip.latest) / (rip.first - RIPPED_BF)) * 100)) : rip.latest != null && rip.latest <= RIPPED_BF ? 100 : 0;
 
   const schedule = todaySchedule(settings, new Date(now));
   const dateLabel = new Date(now).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
@@ -89,6 +95,49 @@ export default function Today() {
             onPress={() => void start(next, true)} style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
         </View>
       ) : null}
+      </FadeIn>
+
+      <FadeIn delay={40}>
+        <Section title="Road to ripped">
+          {rip.latest != null ? (
+            <>
+              <Row style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                <View>
+                  <Text style={ui.statLabel}>Body fat now</Text>
+                  <Text style={st.bf}>{rip.latest.toFixed(1)}<Text style={st.bfUnit}>%</Text></Text>
+                </View>
+                <Icon name="arrow-forward" size={18} color={C.faint} style={{ marginBottom: 10 }} />
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={ui.statLabel}>Ripped target</Text>
+                  <Text style={[st.bf, { color: C.accent }]}>{RIPPED_BF}<Text style={st.bfUnit}>%</Text></Text>
+                </View>
+              </Row>
+              <Track height={8}><AnimatedBar pct={ripPct} color={C.accent} /></Track>
+              <Pill label={rip.phase.name} icon="flame-outline" color={C.accent} bg={C.accentSoft} />
+              {road && road.fatToLoseKg > 0.2 ? (
+                <T small muted>
+                  About <T small bold>{fmtWeight(road.fatToLoseKg, settings.weightUnit)} of fat</T> to go: roughly {road.weeksMin}–{road.weeksMax} weeks
+                  at a steady pace. At today’s muscle that’s about {fmtWeight(road.goalWeightKg, settings.weightUnit)} on the scale, and more muscle makes it look even better.
+                </T>
+              ) : <T small muted>You’re at the target. Hold it and keep building shoulders, back and arms.</T>}
+              <T small>{rip.phase.tip}</T>
+              <Row style={{ gap: 14 }}>
+                <Meta icon="pulse-outline" text={`${rip.phase.cardioMin} min cardio / wk`} />
+                <Meta icon="walk-outline" text={`${rip.phase.steps} steps / day`} />
+              </Row>
+            </>
+          ) : (
+            <>
+              <T small muted>
+                Ripped means about {RIPPED_BF}% body fat on top of the muscle you’re building: that’s when the abs and the V-taper really show.
+                Add your {settings.heightCm ? '' : 'height (Settings) and '}neck and waist at check-in and the app estimates your body fat,
+                sets your phase and calories, and shows how long it will take.
+              </T>
+              <Btn label={settings.heightCm ? 'Add neck & waist' : 'Add your height'} icon={settings.heightCm ? 'body-outline' : 'resize-outline'} size="sm"
+                style={{ alignSelf: 'flex-start' }} onPress={() => router.push(settings.heightCm ? '/checkin' : '/settings')} />
+            </>
+          )}
+        </Section>
       </FadeIn>
 
       {(daysSinceCheckIn === null || daysSinceCheckIn >= 7) && (
@@ -218,6 +267,8 @@ const st = StyleSheet.create({
   speedRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 10 },
   speedSep: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: C.borderStrong },
   num: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.surface3, alignItems: 'center', justifyContent: 'center' },
+  bf: { color: C.text, fontSize: 34, fontWeight: '800', letterSpacing: -1, fontVariant: ['tabular-nums'] },
+  bfUnit: { fontSize: 18, fontWeight: '700', color: C.muted },
   planRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
   planTime: { width: 72, color: C.text, fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
   numText: { color: C.muted, fontSize: 12, fontWeight: '700' },
