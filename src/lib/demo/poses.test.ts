@@ -10,6 +10,7 @@ describe('exercise demos', () => {
     expect(EXERCISES.map((e) => e.id).filter((id) => !DEMO_IDS.includes(id))).toEqual([]);
   });
 
+  // The app frames each demo with fitView(); this just guards against runaway coordinates.
   it('produces finite, on-canvas coordinates for every exercise and frame', () => {
     const bad: string[] = [];
     for (const ex of EXERCISES) {
@@ -17,7 +18,7 @@ describe('exercise demos', () => {
         for (const pr of frame(patternFor(ex), p)) {
           const pts = pr.k === 'line' ? [pr.a, pr.b] : pr.k === 'circle' ? [pr.at] : [[pr.x, pr.y] as [number, number]];
           for (const [x, y] of pts) {
-            if (!Number.isFinite(x) || !Number.isFinite(y) || x < -10 || x > 170 || y < -10 || y > 130) bad.push(`${ex.id}@${p}: ${x},${y}`);
+            if (!Number.isFinite(x) || !Number.isFinite(y) || x < -10 || x > 170 || y < -30 || y > 130) bad.push(`${ex.id}@${p}: ${x},${y}`);
           }
         }
       }

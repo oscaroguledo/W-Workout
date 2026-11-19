@@ -15,7 +15,7 @@ describe('3D exercise demos', () => {
           for (const sh of shapes) {
             const pts = sh.k === 'poly' ? sh.pts : sh.k === 'sphere' ? [sh.at] : [sh.a, sh.b];
             for (const [x, y] of pts) {
-              if (!Number.isFinite(x) || !Number.isFinite(y) || x < -40 || x > 200 || y < -20 || y > 150) {
+              if (!Number.isFinite(x) || !Number.isFinite(y) || x < -40 || x > 200 || y < -45 || y > 150) {
                 bad.push(`${ex.id} yaw${dyaw} p${p}: ${x.toFixed(1)},${y.toFixed(1)}`);
               }
             }

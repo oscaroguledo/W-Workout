@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNow } from '@/lib/useNow';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   addSet, deleteSession, deleteSet, getSession, getSetsForExercises, getSetsForSession, removeSlot, uid,
@@ -116,16 +116,24 @@ export default function WorkoutScreen() {
         <Field label="How did it feel? (optional)" style={{ minHeight: 84, textAlignVertical: 'top' }} multiline value={notes}
           onChangeText={setNotes} placeholder="Energy, sleep, anything that hurt…" />
         <Btn label={totalSets === 0 ? 'End (nothing logged)' : 'Save workout'} variant="primary" size="lg" onPress={async () => {
-          if (totalSets === 0) await deleteSession(sessionId);
-          else await updateSession(sessionId, { endedAt: Date.now(), notes: notes.trim() || undefined });
-          setSheet(null);
-          exit(true);
+          try {
+            if (totalSets === 0) await deleteSession(sessionId);
+            else await updateSession(sessionId, { endedAt: Date.now(), notes: notes.trim() || undefined });
+            setSheet(null);
+            exit(true);
+          } catch (e) {
+            Alert.alert('Couldn’t save the workout', (e as Error).message);
+          }
         }} />
         <Btn label="Discard workout" icon="trash-outline" variant="danger" onPress={async () => {
           if (!(await confirm('Discard workout?', 'This deletes the workout and all its sets.', 'Discard', true))) return;
-          await deleteSession(sessionId);
-          setSheet(null);
-          exit(true);
+          try {
+            await deleteSession(sessionId);
+            setSheet(null);
+            exit(true);
+          } catch (e) {
+            Alert.alert('Couldn’t discard the workout', (e as Error).message);
+          }
         }} />
       </Sheet>
     </>
@@ -280,7 +288,7 @@ export default function WorkoutScreen() {
 
         {showHowTo && (
           <FadeIn key={`howto-${ex.id}`} dy={-8} style={st.cues}>
-            <ExerciseDemo exercise={ex} height={170} />
+            <ExerciseDemo exercise={ex} height={170} paused={sheet !== null} />
             <View style={{ gap: 8, paddingHorizontal: 4, paddingBottom: 4 }}>
               {ex.cues.map((c, i) => (
                 <Row key={i} style={{ alignItems: 'flex-start', gap: 10 }}>

@@ -400,15 +400,16 @@ export const PATTERNS = {
   }),
   pullUp: (): SidePattern => ({
     view: 'side', elbow: -1, knee: -1, period: 3,
-    a: { hip: [85, 81], t: 182, foot: { hip: [-20, 26] }, hand: { abs: [88, 8] } },
-    b: { hip: [84, 54], t: 176, foot: { hip: [-20, 26] }, hand: { abs: [88, 8] } },
-    props: [{ k: 'crossbar', at: [88, 8] }, { k: 'bar', a: [118, 8], b: [118, FLOOR_Y] }],
+    // Hanging well clear of the floor: feet dangle at the bottom of the rep.
+    a: { hip: [85, 63], t: 182, foot: { hip: [-20, 26] }, hand: { abs: [88, -10] } },
+    b: { hip: [84, 36], t: 176, foot: { hip: [-20, 26] }, hand: { abs: [88, -10] } },
+    props: [{ k: 'crossbar', at: [88, -10] }, { k: 'bar', a: [118, -10], b: [118, FLOOR_Y] }],
   }),
   hangingKneeRaise: (): SidePattern => ({
     view: 'side', elbow: -1, knee: -1, period: 2.6,
-    a: { hip: [85, 81], t: 182, foot: { hip: [-10, 26] }, hand: { abs: [88, 8] } },
-    b: { hip: [87, 78], t: 188, foot: { hip: [26, 24] }, hand: { abs: [88, 8] } },
-    props: [{ k: 'crossbar', at: [88, 8] }, { k: 'bar', a: [118, 8], b: [118, FLOOR_Y] }],
+    a: { hip: [85, 61], t: 182, foot: { hip: [-10, 26] }, hand: { abs: [88, -12] } },
+    b: { hip: [87, 58], t: 188, foot: { hip: [26, 24] }, hand: { abs: [88, -12] } },
+    props: [{ k: 'crossbar', at: [88, -12] }, { k: 'bar', a: [118, -12], b: [118, FLOOR_Y] }],
   }),
   cableRow: (machine: boolean): SidePattern => ({
     view: 'side', elbow: -1, knee: -1,
