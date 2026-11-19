@@ -430,10 +430,10 @@ const st = StyleSheet.create({
   target: { backgroundColor: C.surface, borderRadius: R.lg, padding: 14, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: C.border },
   targetMain: { color: C.text, fontSize: 20, fontWeight: '700', letterSpacing: -0.3, fontVariant: ['tabular-nums'] },
   lastTime: { gap: 6, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderColor: C.borderStrong },
-  setRow: { flexDirection: 'row', alignItems: 'stretch', gap: 6, padding: 6, borderRadius: R.lg, borderWidth: 1, borderColor: 'transparent', backgroundColor: C.surface },
+  setRow: { flexDirection: 'row', alignItems: 'stretch', gap: 5, padding: 5, borderRadius: R.lg, borderWidth: 1, borderColor: 'transparent', backgroundColor: C.surface },
   setRowDone: { borderColor: C.doneBorder },
-  setNum: { width: 26, height: 26, borderRadius: 13, alignSelf: 'center', backgroundColor: C.surface3, alignItems: 'center', justifyContent: 'center', marginHorizontal: 2 },
+  setNum: { width: 24, height: 24, borderRadius: 12, alignSelf: 'center', backgroundColor: C.surface3, alignItems: 'center', justifyContent: 'center' },
   setNumText: { color: C.muted, fontSize: 12, fontWeight: '700' },
-  check: { width: 58, flex: 1, borderRadius: R.md, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' },
+  check: { width: 52, flex: 1, borderRadius: R.md, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' },
   checkOn: { backgroundColor: C.accent },
 });

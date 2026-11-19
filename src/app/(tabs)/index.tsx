@@ -119,7 +119,7 @@ export default function Today() {
                 <Text style={[st.planTime, isNext && { color: C.accent }, done && { color: C.faint }]}>{fmtHM(it.hm)}</Text>
                 <Icon name={info ? info.icon : 'barbell-outline'} size={17} color={isNext ? C.accent : done ? C.faint : C.muted} />
                 <T style={[{ flex: 1 }, done && { color: C.faint }]} numberOfLines={1}>{label}</T>
-                {isNext && <Pill label="Next" color={C.accent} bg={C.accentSoft} />}
+                {isNext && <Pill label="Next" color={C.accent} bg={C.accentSoft} style={{ alignSelf: 'center' }} />}
                 {!isNext && remind > 0 && !done && <Icon name="notifications-outline" size={14} color={C.faint} />}
               </Pressable>
             );

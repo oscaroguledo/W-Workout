@@ -157,7 +157,7 @@ function RoutineEditor(props: { routine: Routine; onDeleted: () => void }) {
         const ex = exMap[it.exerciseId];
         const isTime = ex?.kind === 'time';
         return (
-          <View key={i} style={{ backgroundColor: C.surface2, borderRadius: R.lg, padding: 12, gap: 10 }}>
+          <View key={i} style={{ borderWidth: 1, borderColor: C.borderStrong, borderRadius: R.lg, padding: 12, gap: 10 }}>
             <Row>
               <Text style={st.idx}>{i + 1}</Text>
               <T bold style={{ flex: 1 }}>{ex?.name ?? it.exerciseId}</T>

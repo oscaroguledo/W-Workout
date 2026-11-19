@@ -41,7 +41,8 @@ export function RestTimerBar(props: {
   const { timer, vibrate, suggestedSec } = props;
   const { rest, start, adjust, clear } = timer;
   const insets = useSafeAreaInsets();
-  const now = useNow(100);
+  // Tick only while a rest is running: an idle bar shouldn't re-render (battery).
+  const now = useNow(rest ? 200 : null);
   const fired = useRef<number | null>(null);
 
   const remaining = rest ? Math.min(rest.total, (rest.endsAt - now) / 1000) : 0;

@@ -306,3 +306,49 @@ export function render3d(pt: Pattern, p: number, cam: Camera): Shape[] {
   else sideScene(pt, p, sc);
   return sc.sorted();
 }
+
+/** Points a shape covers on screen (floor and its shadow excluded by the caller). */
+function extent(s: Shape): [number, number, number, number] {
+  switch (s.k) {
+    case 'capsule': {
+      const r = s.w / 2;
+      return [Math.min(s.a[0], s.b[0]) - r, Math.min(s.a[1], s.b[1]) - r, Math.max(s.a[0], s.b[0]) + r, Math.max(s.a[1], s.b[1]) + r];
+    }
+    case 'sphere':
+      return [s.at[0] - s.r, s.at[1] - s.r, s.at[0] + s.r, s.at[1] + s.r];
+    case 'line':
+      return [Math.min(s.a[0], s.b[0]), Math.min(s.a[1], s.b[1]), Math.max(s.a[0], s.b[0]), Math.max(s.a[1], s.b[1])];
+    case 'poly': {
+      const xs = s.pts.map((q) => q[0]), ys = s.pts.map((q) => q[1]);
+      return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    }
+  }
+}
+
+export interface ViewBox { x: number; y: number; w: number; h: number }
+
+/**
+ * A viewBox that keeps the whole movement in frame: samples the rep from start to
+ * finish across the camera's swing (`yaw ± swing`), takes the bounds of the body and
+ * equipment (not the floor), pads them, and widens to the given aspect ratio so the
+ * demo fills its card without anything being cut off.
+ */
+export function fitView(pt: Pattern, yaw: number, pitch: number, swing = 30, aspect = 160 / 112): ViewBox {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const dy of [-swing, 0, swing]) {
+    for (let i = 0; i <= 8; i++) {
+      for (const s of render3d(pt, i / 8, { yaw: yaw + dy, pitch })) {
+        if (s.depth < -990) continue; // floor grid + contact shadow
+        const [a, b, c, d] = extent(s);
+        x0 = Math.min(x0, a); y0 = Math.min(y0, b); x1 = Math.max(x1, c); y1 = Math.max(y1, d);
+      }
+    }
+  }
+  const pad = 6;
+  x0 -= pad; x1 += pad; y0 -= pad; y1 += pad + 6; // a little extra below so the floor shows
+  let w = x1 - x0, h = y1 - y0;
+  // Never zoom in so far that a small figure looks blown up.
+  if (h < 72) { y0 -= (72 - h) * 0.6; h = 72; }
+  if (w / h < aspect) { const nw = h * aspect; x0 -= (nw - w) / 2; w = nw; } else { const nh = w / aspect; y0 -= (nh - h) * 0.6; h = nh; }
+  return { x: +x0.toFixed(1), y: +y0.toFixed(1), w: +w.toFixed(1), h: +h.toFixed(1) };
+}

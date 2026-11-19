@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, PanResponder, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polygon } from 'react-native-svg';
 import { patternFor, periodOf, phase } from '../lib/demo/poses';
-import { defaultYaw, render3d, type Shape } from '../lib/demo/render3d';
+import { defaultYaw, fitView, render3d, type Shape } from '../lib/demo/render3d';
 import { C } from '../theme';
 import type { Exercise } from '../types';
 
@@ -23,6 +23,8 @@ export const ExerciseDemo = memo(function ExerciseDemo(props: {
   const { exercise, height = 170, animate = true } = props;
   const pattern = useMemo(() => patternFor(exercise), [exercise]);
   const baseYaw = defaultYaw(pattern);
+  // Frame the whole movement (e.g. hands on a pull-up bar) instead of a fixed window.
+  const vb = useMemo(() => fitView(pattern, baseYaw, PITCH, ORBIT + 8), [pattern, baseYaw]);
   const [view, setView] = useState({ p: 0.5, yaw: baseYaw });
   const [reduceMotion, setReduceMotion] = useState(false);
   const [hint, setHint] = useState(true);
@@ -78,7 +80,7 @@ export const ExerciseDemo = memo(function ExerciseDemo(props: {
       accessible accessibilityRole="image" accessibilityLabel={`3D animation showing how to do ${exercise.name}`}
       accessibilityHint={animate ? 'Drag sideways to rotate the view' : undefined}
       style={{ height, backgroundColor: '#121418', borderRadius: 14, overflow: 'hidden' }}>
-      <Svg width="100%" height="100%" viewBox="0 6 160 112" preserveAspectRatio="xMidYMid meet">
+      <Svg width="100%" height="100%" viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} preserveAspectRatio="xMidYMid meet">
         {shapes.map((s, i) => <ShapeEl key={i} s={s} />)}
       </Svg>
       {animate && hint && (

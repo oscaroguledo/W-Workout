@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useRef, useState, type ReactNode } from 'react';
-import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { eraseAll, exportAll, getSettings, importAll, updateSettings, useSettings, type Backup } from '@/db';
 import { before, fmtHM, MEAL_INFO, toHM, toMin } from '@/lib/meals';
 import { syncReminders, testReminder, type SyncResult } from '@/lib/reminders';
@@ -19,8 +19,8 @@ export default function SettingsScreen() {
   const kcalVal = kcalInput ?? (s.kcalTarget ? String(s.kcalTarget) : '');
   const saveKcal = () => {
     const v = parseInt(kcalVal, 10);
-    void updateSettings({ kcalTarget: isNaN(v) || v < 800 ? undefined : v });
-    setKcalInput(null);
+    // Keep showing what was typed until the save lands (no flash of the old value).
+    void updateSettings({ kcalTarget: isNaN(v) || v < 800 ? undefined : v }).then(() => setKcalInput(null));
   };
   const [importText, setImportText] = useState('');
   const [importErr, setImportErr] = useState('');
@@ -40,18 +40,17 @@ export default function SettingsScreen() {
 
   const saveHeight = () => {
     const v = parseFloat(heightVal.replace(',', '.'));
-    void updateSettings({ heightCm: isNaN(v) ? undefined : unitToCm(v, s.lengthUnit) });
-    setHeightInput(null);
+    void updateSettings({ heightCm: isNaN(v) ? undefined : unitToCm(v, s.lengthUnit) }).then(() => setHeightInput(null));
   };
 
   return (
     <Screen title="Settings" onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
       <Section title="Units & body">
-        <SettingRow label="Weight">
+        <SettingRow label="Weight" wide>
           <Segmented options={[{ value: 'kg', label: 'kg' }, { value: 'lbs', label: 'lbs' }]} value={s.weightUnit}
             onChange={(u) => void updateSettings({ weightUnit: u })} />
         </SettingRow>
-        <SettingRow label="Length">
+        <SettingRow label="Length" wide>
           <Segmented options={[{ value: 'cm', label: 'cm' }, { value: 'in', label: 'in' }]} value={s.lengthUnit}
             onChange={(u) => { setHeightInput(null); void updateSettings({ lengthUnit: u }); }} />
         </SettingRow>
@@ -112,6 +111,15 @@ export default function SettingsScreen() {
             const res = await testReminder(10);
             setReminderMsg(res === 'ok' ? { ok: true, text: 'Test reminder coming in 10 seconds. Lock your phone to see it on the lock screen.' } : reminderText(res, s));
           }} />
+        {Platform.OS === 'android' && (s.mealReminderMin > 0 || s.workoutReminderMin > 0) && (
+          <Row style={{ alignItems: 'flex-start' }}>
+            <Icon name="time-outline" size={16} color={C.faint} style={{ marginTop: 1 }} />
+            <T small muted style={{ flex: 1 }}>
+              Reminders arriving late? Turn on <T small bold>Alarms &amp; reminders</T> for this app in your phone’s settings so Android delivers them on time.{' '}
+              <T small style={{ color: C.accent2 }} onPress={() => void Linking.openSettings()}>Open app settings</T>
+            </T>
+          </Row>
+        )}
         {reminderMsg ? (
           <Row style={{ alignItems: 'flex-start' }}>
             <Icon name={reminderMsg.ok ? 'notifications' : 'alert-circle-outline'} size={16} color={reminderMsg.ok ? C.accent : C.warn} style={{ marginTop: 1 }} />
@@ -183,11 +191,11 @@ export default function SettingsScreen() {
   );
 }
 
-function SettingRow(props: { label: string; children: ReactNode }) {
+function SettingRow(props: { label: string; children: ReactNode; wide?: boolean }) {
   return (
     <Row style={{ justifyContent: 'space-between', minHeight: 44 }}>
       <T style={{ flex: 1 }}>{props.label}</T>
-      <View style={{ width: 140, alignItems: 'flex-end' }}>{props.children}</View>
+      <View style={props.wide ? { width: 140 } : null}>{props.children}</View>
     </Row>
   );
 }

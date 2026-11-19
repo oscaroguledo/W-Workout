@@ -19,7 +19,8 @@ export function Screen(props: {
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <ScrollView style={s.screen} contentContainerStyle={[s.screenInner, { paddingTop: insets.top + 14 }]}
+    <View style={s.screen}>
+    <ScrollView style={s.screen} contentContainerStyle={[s.screenInner, { paddingTop: insets.top + 14, paddingBottom: 40 + insets.bottom }]}
       keyboardShouldPersistTaps="handled">
       {props.onBack && (
         <Pressable onPress={props.onBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={10}
@@ -39,6 +40,9 @@ export function Screen(props: {
       )}
       {props.children}
     </ScrollView>
+    {/* Solid strip behind the status bar so content never scrolls under the clock. */}
+    <View pointerEvents="none" style={[s.statusScrim, { height: insets.top }]} />
+    </View>
   );
 }
 
@@ -61,9 +65,11 @@ export function Section(props: {
   );
 }
 
-export function T(props: { children: ReactNode; style?: StyleProp<TextStyle>; muted?: boolean; small?: boolean; bold?: boolean; numberOfLines?: number }) {
+export function T(props: {
+  children: ReactNode; style?: StyleProp<TextStyle>; muted?: boolean; small?: boolean; bold?: boolean; numberOfLines?: number; onPress?: () => void;
+}) {
   return (
-    <Text numberOfLines={props.numberOfLines}
+    <Text numberOfLines={props.numberOfLines} onPress={props.onPress} accessibilityRole={props.onPress ? 'link' : undefined}
       style={[s.text, props.small && s.small, props.muted && s.muted, props.bold && s.bold, props.style]}>
       {props.children}
     </Text>
@@ -183,7 +189,7 @@ export function Stepper(props: {
       {btn(-1)}
       <View style={s.stepVal}>
         <Text style={s.stepValText} numberOfLines={1} adjustsFontSizeToFit>{display ? display(value) : value}</Text>
-        <Text style={s.stepLabel} numberOfLines={1}>{label}</Text>
+        <Text style={s.stepLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{label}</Text>
       </View>
       {btn(1)}
     </View>
@@ -201,7 +207,8 @@ export function Sheet(props: { open: boolean; onClose: () => void; title: string
   }, [props.open, y]);
   return (
     <Modal visible={props.open} transparent animationType="fade" onRequestClose={props.onClose} statusBarTranslucent>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      {/* Android modals don't resize for the keyboard, so pad there too. */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={{ flex: 1 }}>
         <Pressable style={s.backdrop} onPress={props.onClose} accessibilityLabel="Close" />
         <Animated.View style={[s.sheet, { paddingBottom: insets.bottom + 12, transform: [{ translateY: y }] }]}>
           <View style={s.grabber} />
@@ -358,10 +365,10 @@ export function IconTile(props: { name: IconName; color?: string; bg?: string; s
 }
 
 /** Small rounded status label. */
-export function Pill(props: { label: string; color?: string; bg?: string; icon?: IconName }) {
+export function Pill(props: { label: string; color?: string; bg?: string; icon?: IconName; style?: StyleProp<ViewStyle> }) {
   const color = props.color ?? C.muted;
   return (
-    <View style={[s.pill, { backgroundColor: props.bg ?? C.surface3 }]}>
+    <View style={[s.pill, { backgroundColor: props.bg ?? C.surface3 }, props.style]}>
       {props.icon && <Icon name={props.icon} size={12} color={color} />}
       <Text style={[s.pillText, { color }]} numberOfLines={1}>{props.label}</Text>
     </View>
@@ -370,6 +377,7 @@ export function Pill(props: { label: string; color?: string; bg?: string; icon?:
 
 export const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
+  statusScrim: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: C.bg },
   screenInner: { paddingHorizontal: 16, paddingBottom: 40, gap: 20 },
   pageHead: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: -4 },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: -6, marginBottom: -12, alignSelf: 'flex-start', minHeight: 32 },
@@ -407,11 +415,11 @@ export const s = StyleSheet.create({
   fieldLabel: { color: C.muted, fontSize: 13, fontWeight: '500' },
   input: { minHeight: 48, paddingHorizontal: 14, paddingVertical: 12, borderRadius: R.md, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface2, color: C.text, fontSize: 16 },
   stepper: { flex: 1, flexDirection: 'row', minHeight: 58, borderRadius: R.md, overflow: 'hidden', backgroundColor: C.surface2 },
-  stepBtn: { width: 36, alignItems: 'center', justifyContent: 'center' },
+  stepBtn: { width: 30, alignItems: 'center', justifyContent: 'center' },
   stepBtnPressed: { backgroundColor: C.surface3 },
   stepVal: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
   stepValText: { color: C.text, fontSize: 21, fontWeight: '700', fontVariant: ['tabular-nums'], letterSpacing: -0.3 },
-  stepLabel: { color: C.faint, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  stepLabel: { color: C.faint, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)' },
   sheet: { maxHeight: '90%', backgroundColor: C.surface, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderStrong, paddingHorizontal: 16 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 8, paddingBottom: 14 },
