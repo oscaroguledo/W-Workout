@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Recomp",
+    "slug": "recomp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.recomp.workout"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f1115",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.recomp.workout"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-sqlite",
+      "expo-notifications",
+      "expo-font"
+    ],
+    "scheme": "recomp",
+    "backgroundColor": "#0f1115",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
