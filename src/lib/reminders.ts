@@ -13,6 +13,17 @@ const MAIN: MainMeal[] = ['breakfast', 'lunch', 'dinner'];
 const MEAL_EMOJI: Record<MainMeal, string> = { breakfast: '🍳', lunch: '🥗', dinner: '🍽️' };
 const ids = [...MAIN.map((m) => `meal-${m}`), ...[0, 1, 2, 3, 4, 5, 6].map((d) => `workout-${d}`)];
 
+/** Fires a sample meal reminder after `seconds`, to check notifications work on this phone. */
+export async function testReminder(seconds = 10): Promise<SyncResult> {
+  if (Platform.OS === 'web') return 'unsupported';
+  if (!(await ensurePermission(true))) return 'denied';
+  await Notifications.scheduleNotificationAsync({
+    content: { title: 'Lunch in 30 min 🥗', body: `This is a test. ${MEAL_INFO.lunch.tip}`, sound: 'default', data: { url: '/food' } },
+    trigger: { type: SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, channelId: REMINDER_CHANNEL },
+  });
+  return 'ok';
+}
+
 export type SyncResult = 'ok' | 'off' | 'denied' | 'unsupported';
 
 export async function syncReminders(s: Settings, opts: { ask: boolean }): Promise<SyncResult> {

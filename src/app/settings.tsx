@@ -3,7 +3,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { eraseAll, exportAll, getSettings, importAll, updateSettings, useSettings, type Backup } from '@/db';
 import { before, fmtHM, MEAL_INFO, toHM, toMin } from '@/lib/meals';
-import { syncReminders, type SyncResult } from '@/lib/reminders';
+import { syncReminders, testReminder, type SyncResult } from '@/lib/reminders';
 import type { Settings } from '@/types';
 import { restDoneBuzz, scheduleRestEnd } from '@/lib/alerts';
 import { cmToUnit, unitToCm } from '@/lib/units';
@@ -107,6 +107,11 @@ export default function SettingsScreen() {
         </Row>
         <T small muted>Remind me before training</T>
         <Segmented options={LEADS} value={s.workoutReminderMin} onChange={(v) => saveSchedule({ workoutReminderMin: v })} />
+        <Btn label="Send a test reminder in 10s" icon="notifications-outline" size="sm" style={{ alignSelf: 'flex-start' }}
+          onPress={async () => {
+            const res = await testReminder(10);
+            setReminderMsg(res === 'ok' ? { ok: true, text: 'Test reminder coming in 10 seconds. Lock your phone to see it on the lock screen.' } : reminderText(res, s));
+          }} />
         {reminderMsg ? (
           <Row style={{ alignItems: 'flex-start' }}>
             <Icon name={reminderMsg.ok ? 'notifications' : 'alert-circle-outline'} size={16} color={reminderMsg.ok ? C.accent : C.warn} style={{ marginTop: 1 }} />
