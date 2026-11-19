@@ -2,8 +2,9 @@
 
 # Recomp
 
-Recomp is a gym and calisthenics tracker for **body recomposition**: building muscle and losing belly fat at the
-same time, aiming for an athletic V-taper (broad shoulders, wide back, small waist). It is built for someone who
+Recomp is a gym and calisthenics tracker for **body recomposition** that leads to a **ripped** physique: building
+muscle and losing belly fat at the same time until you're at about 10% body fat with visible abs and an athletic
+V-taper (broad shoulders, wide back, small waist). It is built for someone who
 trains at a commercial gym with real equipment (machines, cables, barbells, dumbbells, kettlebells and cardio
 machines) and needs the app to keep up between sets: big buttons, a target on every exercise, and a swap when a
 machine is taken.
@@ -61,9 +62,12 @@ signal in the gym.
 - **Progressive overload on every exercise.** Double progression: add reps across the range, then add weight
   (2.5 kg barbell, 2 kg dumbbell, 4 kg kettlebell). The target card says exactly what to beat today, and suggests
   a deload or a harder variation when it's time.
-- **79 exercises with 3D demos.** Gym machines, free weights, cables, kettlebells, cardio machines and
-  calisthenics. Each has an animated 3D mannequin you can drag to rotate, form cues, easier and harder versions,
-  and alternatives for when the equipment is busy. Add your own custom exercises.
+- **79 exercises with 3D demos that show the muscles working.** Gym machines, free weights, cables, kettlebells,
+  cardio machines and calisthenics. Each demo is a lean, athletic mannequin (V-taper torso, pecs, six-pack, lats,
+  delts, arms and legs) that you can drag to rotate. The muscles the exercise works glow red (main) and amber
+  (assisting), pulsing with each rep, with a legend naming them; cardio also shows the heart and lungs working.
+  Each one also has form cues, easier and harder versions, and alternatives for when the equipment is busy.
+  Add your own custom exercises.
 - **Swap anything mid-workout.** Machine taken? Pick an alternative for today only, with a still 3D preview of each option.
 - **Rest timer that works in your pocket.** Ring countdown, ±15 s, sound and vibration, and a scheduled local
   notification so it still alerts you with the phone locked.
@@ -74,8 +78,12 @@ signal in the gym.
 - **Reminders.** A notification 15, 30 or 60 minutes before each meal, and before training on your gym days.
   Tapping one opens the Food or Today screen.
 - **Today's plan.** Meals and the workout for today in time order, with the next one highlighted.
+- **Road to ripped.** Add your neck and waist at check-in (plus your height once) and the app estimates your body fat
+  with the US Navy tape method, shows how far you are from the ~10% ripped target, how much fat is left to lose and a
+  realistic timeline, and puts you in a phase: *Lean out* (500 kcal deficit), *Get ripped* (400) or *Stay ripped &
+  build* (maintenance). Your calorie target and cardio follow the phase.
 - **Progress that tracks the recomp.** Waist (the main scoreboard), weight, shoulder-to-waist V-taper ratio
-  (target ~1.6) and waist-to-height ratio, with charts. Also weekly sets per muscle against your program's
+  (target ~1.6), body fat and waist-to-height ratio, with charts. Also weekly sets per muscle against your program's
   targets, weekly cardio minutes, and personal records with a per-exercise trend.
 - **Everything offline.** SQLite on the phone, with JSON export and import for backups.
 
@@ -89,8 +97,9 @@ signal in the gym.
    automatically. Each exercise shows a target from your last session. Log each set, rest with the timer, and
    swap anything that's taken. New PRs get a toast and confetti.
 4. **Finish.** The session summary shows time, sets and volume. Add a note, save it, and it appears in History.
-5. **Weekly check-in.** Weight, waist and (optionally) shoulders, measured the same morning each week. Progress
-   updates the trends, and Food uses your weight to set protein and calorie targets.
+5. **Weekly check-in.** Weight, waist and (optionally) shoulders and neck, measured the same morning each week.
+   Progress updates the trends, Today updates your body fat and phase on the road to ripped, and Food uses your
+   weight and phase to set protein and calorie targets.
 
 ## Architecture
 
@@ -142,13 +151,15 @@ src/
   lib/
     progression.ts          Double-progression suggestions (strength, holds, cardio)
     stats.ts                e1RM, PRs, weekly sets per muscle, cardio minutes, V-taper ratio
-    nutrition.ts            Protein and calorie targets, totals
+    nutrition.ts            Protein and calorie targets (deficit follows the phase), totals
+    ripped.ts               US Navy body-fat estimate, phases, fat left to lose and timeline
     meals.ts                Meal times, which meal it is now, per-meal shares, today's schedule
     reminders.ts            Daily meal and weekly workout notifications
     alerts.ts               Notification channels and permission, rest alert, haptics
     session.ts              Next routine, express plan, starting a session
     units.ts                kg/lbs, cm/in, km/mi, formatting
-    demo/                   poses.ts (keyframed skeletons, 2-link IK) and render3d.ts (projection, shading)
+    demo/                   poses.ts (keyframed skeletons, 2-link IK), render3d.ts (athletic mannequin, projection,
+                            shading, muscle highlights, auto-framing), muscles.ts (what each demo highlights)
     *.test.ts               Unit tests next to the code they cover
   theme.ts                Colours, radii, tap-target size
   types.ts                Domain types and default settings
@@ -217,7 +228,7 @@ and saved on the phone.
 | Weekly cardio target            | `120` min               | Shown on Today and Progress. |
 | Sound / vibrate when rest ends  | on / on                 | Rest-timer alert. "Send a test alert in 5s" checks it with the phone locked. |
 | Daily protein                   | `2.0` g per kg          | 1.6–2.2 g/kg of your latest check-in weight. |
-| Daily calorie target            | estimated               | Blank = maintenance estimate (weight × 31) − 400. Lower it by ~150 if your waist hasn't moved in 3–4 weeks. |
+| Daily calorie target            | estimated               | Blank = maintenance estimate (weight × 31) minus the phase deficit (500 / 400 / 0; 400 before a body-fat estimate). Lower it by ~150 if your waist hasn't moved in 3–4 weeks. |
 | Program                         | Aesthetic V-Taper       | Changed on Plans. It sets the routines and the per-muscle weekly set targets. |
 
 "Send a test reminder in 10s" (in the reminders section) checks that notifications are allowed on the phone.
@@ -241,9 +252,10 @@ npx expo-doctor        # dependency and config checks
 npx expo install --fix # align package versions with the SDK
 ```
 
-The tests cover the logic, not the screens. They check every exercise has a demo that stays on the canvas with
-planted feet and constant limb lengths, that every program references real exercises, that the progression and PR
-rules hold, and that meal times, reminder times (including across midnight) and per-meal targets add up. Run
+The tests cover the logic, not the screens. They check every exercise has a demo that stays in frame through the
+whole rep and camera swing, with planted feet and constant limb lengths, that every program references real exercises, that the progression and PR
+rules hold, that meal times, reminder times (including across midnight) and per-meal targets add up, and that the
+body-fat estimate, phases and timeline behave. Run
 lint and typecheck before every commit.
 
 New dependencies go through `npx expo install <package>` so versions match the SDK. If a library with native code
