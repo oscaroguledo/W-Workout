@@ -98,8 +98,46 @@ class Scene {
   }
   /** Filled silhouette (convex hull) of a cloud of 3D points, e.g. a torso built from cross-sections. */
   hull(pts: V3[], fill: string, depth: number, stroke?: string) {
-    const pp = pts.map((v) => this.proj(v).p);
-    this.shapes.push({ k: 'poly', pts: convexHull(pp), fill: this.lit(fill, depth), stroke, depth });
+    const hull = convexHull(pts.map((v) => this.proj(v).p));
+    this.shapes.push({ k: 'poly', pts: hull, fill: this.lit(fill, depth), stroke, depth });
+    this.shine(hull, fill, depth);
+  }
+
+  /**
+   * A smooth body part: the convex hull of circles placed along its axis (e.g. shoulder,
+   * muscle belly, elbow). Different radii give a natural taper and swell with no seams.
+   */
+  blob(centers: V3[], radii: number[], color: string, opts: { bias?: number; opacity?: number; flat?: boolean; detail?: boolean } = {}) {
+    const pp = centers.map(this.proj);
+    const d = pp.reduce((t, q) => t + q.d, 0) / pp.length + (opts.bias ?? 0);
+    const ring: Pt[] = [];
+    pp.forEach((q, i) => {
+      const r = radii[i] * q.s;
+      for (let k = 0; k < 18; k++) {
+        const a = (k / 18) * Math.PI * 2;
+        ring.push([q.p[0] + Math.cos(a) * r, q.p[1] + Math.sin(a) * r]);
+      }
+    });
+    const hull = convexHull(ring);
+    const soft = opts.opacity != null;
+    this.shapes.push({
+      k: 'poly', pts: hull, fill: opts.flat || soft ? color : this.lit(color, d),
+      stroke: opts.detail || soft ? undefined : OUTLINE, opacity: opts.opacity, depth: d,
+    });
+    if (!opts.detail && !soft) this.shine(hull, color, d);
+  }
+
+  /** Soft highlight on the lit (upper-left) side of a shape, so it reads as rounded. */
+  private shine(hull: Pt[], color: string, depth: number) {
+    if (!color.startsWith('#')) return;
+    let cx = 0, cy = 0;
+    for (const q of hull) { cx += q[0]; cy += q[1]; }
+    cx /= hull.length; cy /= hull.length;
+    let size = 0;
+    for (const q of hull) size = Math.max(size, Math.hypot(q[0] - cx, q[1] - cy));
+    const k = 0.5, off = size * 0.22;
+    const pts = hull.map((q): Pt => [cx + (q[0] - cx) * k - off * 0.55, cy + (q[1] - cy) * k - off * 0.83]);
+    this.shapes.push({ k: 'poly', pts, fill: shade(color, 1.5), opacity: 0.17, depth: depth + 0.01 });
   }
   poly(pts: V3[], fill: string, opts: { stroke?: string; opacity?: number; depth?: number; flat?: boolean; bright?: number } = {}) {
     const pp = pts.map(this.proj);
@@ -245,10 +283,10 @@ function addFigure(sc: Scene, j: Joints, focus?: Focus, pulse = 0) {
   // back: lats flaring into the V, erectors either side of the spine
   const back = T(['back'], mixHex(SKIN, SKIN_DEF, 0.25));
   for (const sd of [1, -1]) {
-    const top = at(shMid, up, -4, side, sd * 7.6, f, -3.4);
-    const bottom = at(tAt(8), side, sd * 3.6, f, -3.2);
+    const top = at(shMid, up, -4, side, sd * 6.4, f, -3.6);
+    const bottom = at(tAt(8), side, sd * 3, f, -3.4);
     glow((c, o) => sc.capsule(top, bottom, 10, c, { ...o, flat: true }), back.level);
-    sc.capsule(top, bottom, 6.4, back.color, { detail: true, bias: 0.05 });
+    sc.capsule(top, bottom, 5.6, back.color, { detail: true, bias: 0.05 });
     sc.capsule(at(tAt(2.5), side, sd * 1.6, f, -3.9), at(tAt(14), side, sd * 1.6, f, -4.3), 2.6, back.level ? back.color : DEF, { detail: true, bias: 0.06 });
   }
 
@@ -298,63 +336,49 @@ function addFigure(sc: Scene, j: Joints, focus?: Focus, pulse = 0) {
     sc.sphere(c, 5.6, glutes.color, -0.1);
   }
 
-  // --- neck and head (with hair)
+  // --- neck and head: an egg-shaped skull with a jaw, hair, ears and nose
   const neck = T(['neck'], SKIN);
-  sc.capsule(at(shMid, up, -1), j.neck, 5.6, neck.color);
   const headUp = unit(sub(j.head, j.neck));
-  sc.sphere(at(j.head, headUp, 1.4, f, -1.6), HEAD_R * 0.96, HAIR, -0.15, undefined, true);
-  sc.sphere(j.head, HEAD_R, SKIN, 0.5);
-  // nose and ears so you can tell which way he faces
-  sc.sphere(at(j.head, f, HEAD_R * 0.92, headUp, -0.6), 1.2, SKIN_DEF, 0.55, undefined, true);
-  for (const sd of [1, -1]) sc.sphere(at(j.head, side, sd * HEAD_R * 0.93, f, -0.6), 1.5, SKIN_DEF, 0.52, undefined, true);
+  glow((c, o) => sc.blob([at(shMid, up, -1), j.neck], [4.6, 4], c, { ...o, flat: true }), neck.level);
+  sc.blob([at(shMid, up, -1.5), at(j.neck, headUp, 1)], [3.8, 3.3], neck.color);
+  sc.blob([at(j.head, headUp, 1.2, f, -0.6), at(j.head, headUp, -3.4, f, 2.2)], [HEAD_R * 0.98, HEAD_R * 0.55], SKIN, { bias: 0.5 });
+  // short hair: a cap over the top and back of the skull (hairline above the eyes)
+  sc.blob([at(j.head, headUp, 4.1, f, -0.6), at(j.head, headUp, 2.6, f, -3)], [HEAD_R * 0.7, HEAD_R * 0.72], HAIR, { bias: 0.45, detail: true });
+  sc.sphere(at(j.head, f, HEAD_R * 0.94, headUp, -0.9), 1.1, SKIN_DEF, 0.55, undefined, true);
+  for (const sd of [1, -1]) sc.sphere(at(j.head, side, sd * HEAD_R * 0.92, f, -0.5, headUp, -0.4), 1.4, SKIN_DEF, 0.52, undefined, true);
 
-  // --- arms: delts, biceps (front), triceps (back), forearms
+  // --- arms: round delts, upper arm with a biceps/triceps swell, tapered forearm, fist
   const delts = T(['shoulders'], SKIN);
   const bi = T(['biceps'], SKIN), tri = T(['triceps'], SKIN);
   for (const [sh, el, ha] of [[j.shN, j.elN, j.haN], [j.shF, j.elF, j.haF]] as V3[][]) {
-    const dir = sub(el, sh);
-    const armFront = facing(dir, f, mul(up, -1));
-    // Whole upper arm lights up for biceps or triceps (reads clearly from any angle).
+    // The whole upper arm lights up for biceps or triceps, so it reads from any angle.
     const arm = bi.level >= tri.level ? bi : tri;
-    glow((c, o) => sc.capsule(sh, el, 9.5, c, { ...o, flat: true }), arm.level);
-    sc.capsule(sh, el, 6.2, arm.level ? arm.color : SKIN);
-    const m = lerp3(sh, el, 0.5);
-    const bc = at(m, armFront, 1.2), tc = at(m, armFront, -1.3);
-    glow((c, o) => sc.sphere(bc, 4.9, c, o.bias, o.opacity), bi.level);
-    glow((c, o) => sc.sphere(tc, 4.8, c, o.bias, o.opacity), tri.level);
-    sc.sphere(bc, 3.1, bi.color, 0.05, undefined, true);
-    sc.sphere(tc, 3, tri.color, 0.05, undefined, true);
-    const dc = lerp3(sh, el, 0.12);
-    glow((c, o) => sc.sphere(dc, 6.4, c, o.bias, o.opacity), delts.level);
-    sc.sphere(dc, 4.7, delts.color, 0.1);
-    sc.capsule(el, ha, 4.6, SKIN);
-    sc.capsule(lerp3(el, ha, 0.1), lerp3(el, ha, 0.45), 5.2, SKIN, { detail: true }); // forearm belly
-    sc.sphere(ha, 2.6, SKIN);
+    const upper = [sh, lerp3(sh, el, 0.45), el];
+    glow((c, o) => sc.blob(upper, [5.4, 5.9, 4.5], c, { ...o, flat: true }), arm.level);
+    sc.blob(upper, [3.7, 4.2, 2.85], arm.level ? arm.color : SKIN);
+    const dc = lerp3(sh, el, 0.08);
+    glow((c, o) => sc.sphere(dc, 6.2, c, o.bias, o.opacity), delts.level);
+    sc.blob([at(dc, up, 0.4), lerp3(sh, el, 0.22)], [4.5, 3.8], delts.color, { bias: 0.08 });
+    const wrist = lerp3(el, ha, 0.92);
+    sc.blob([el, lerp3(el, ha, 0.3), wrist], [2.8, 3.25, 1.9], SKIN);
+    const handDir = unit(sub(ha, el));
+    sc.blob([wrist, at(ha, handDir, 1.4)], [1.95, 2.25], SKIN);
   }
 
-  // --- legs: shorts over the top of the thigh, quads (front), hamstrings (back), calves
+  // --- legs: shorts, thigh with a quad/hamstring swell, knee, calf, ankle, shoe
   const quads = T(['quads'], SKIN), hams = T(['hamstrings'], SKIN), calves = T(['calves'], SKIN);
   for (const [hp, kn, ft] of [[j.hipN, j.knN, j.ftN], [j.hipF, j.knF, j.ftF]] as V3[][]) {
-    const dir = sub(kn, hp);
-    const legFront = facing(dir, f, up);
-    const shortsEnd = lerp3(hp, kn, 0.38);
-    sc.capsule(hp, shortsEnd, 10, SHORTS);
+    sc.blob([hp, lerp3(hp, kn, 0.4)], [5.7, 5.5], SHORTS);
     const thigh = quads.level >= hams.level ? quads : hams;
-    glow((c, o) => sc.capsule(shortsEnd, kn, 10.5, c, { ...o, flat: true }), thigh.level);
-    sc.capsule(shortsEnd, kn, 7.4, thigh.level ? thigh.color : SKIN);
-    const qc = at(lerp3(hp, kn, 0.58), legFront, 1.3), hc = at(lerp3(hp, kn, 0.55), legFront, -1.4);
-    glow((c, o) => sc.sphere(qc, 6.6, c, o.bias, o.opacity), quads.level);
-    glow((c, o) => sc.sphere(hc, 6, c, o.bias, o.opacity), hams.level);
-    sc.sphere(qc, 4.2, quads.color, 0.05, undefined, true);
-    sc.sphere(hc, 3.8, hams.color, 0.05, undefined, true);
-    const shinDir = sub(ft, kn);
-    const calfBack = facing(shinDir, mul(f, -1), mul(up, -1));
-    glow((c, o) => sc.capsule(kn, ft, 8, c, { ...o, flat: true }), calves.level);
-    sc.capsule(kn, ft, 5.2, calves.level ? calves.color : SKIN);
-    const cc = at(lerp3(kn, ft, 0.3), calfBack, 1.2);
-    glow((c, o) => sc.sphere(cc, 5.2, c, o.bias, o.opacity), calves.level);
-    sc.sphere(cc, 3.3, calves.color, 0.05, undefined, true);
-    sc.capsule(ft, [ft[0] + j.forward[0] * 7, ft[1] + j.forward[1] * 7, ft[2]], 5, SHOE);
+    const legPts = [lerp3(hp, kn, 0.36), lerp3(hp, kn, 0.58), kn];
+    glow((c, o) => sc.blob(legPts, [7, 7.2, 4.9], c, { ...o, flat: true }), thigh.level);
+    sc.blob(legPts, [5.5, 5.6, 3.4], thigh.level ? thigh.color : SKIN);
+    const ankle = lerp3(kn, ft, 0.93);
+    const shin = [kn, lerp3(kn, ft, 0.3), ankle];
+    glow((c, o) => sc.blob(shin, [4.7, 5.3, 3.2], c, { ...o, flat: true }), calves.level);
+    sc.blob(shin, [3.35, 3.85, 1.95], calves.level ? calves.color : SKIN);
+    const toe: V3 = [ft[0] + j.forward[0] * 7, ft[1] + j.forward[1] * 7, ft[2]];
+    sc.blob([at(ankle, up, -0.6), ft, toe], [2.2, 2.4, 1.9], SHOE);
   }
 
   // --- cardio: heart and lungs working
