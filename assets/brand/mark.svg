@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Recomp mark: a lifter pressing a barbell overhead. Wide shoulders, narrow
+       waist: the V-taper the app trains for. 1024 grid; keep within the middle 66%
+       so it survives Android's round/squircle masks. -->
+  <g fill="#C5F06A">
+    <!-- barbell -->
+    <rect x="222" y="236" width="580" height="30" rx="15"/>
+    <rect x="240" y="186" width="44" height="130" rx="15"/>
+    <rect x="290" y="208" width="28" height="86" rx="11"/>
+    <rect x="740" y="186" width="44" height="130" rx="15"/>
+    <rect x="706" y="208" width="28" height="86" rx="11"/>
+    <!-- arms: shoulders up to the bar -->
+    <path d="M356 446 L338 262" stroke="#C5F06A" stroke-width="40" stroke-linecap="round" fill="none"/>
+    <path d="M668 446 L686 262" stroke="#C5F06A" stroke-width="40" stroke-linecap="round" fill="none"/>
+    <!-- head -->
+    <circle cx="512" cy="356" r="52"/>
+    <!-- V-taper torso with a chevron cut for the chest line -->
+    <path d="M366 428 H658 Q686 428 678 455 L590 760 Q585 778 566 778 H458 Q439 778 434 760 L346 455 Q338 428 366 428 Z
+             M452 462 L512 560 L572 462 L548 462 L512 520 L476 462 Z" fill-rule="evenodd"/>
+  </g>
+</svg>
